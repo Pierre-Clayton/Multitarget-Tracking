@@ -118,6 +118,7 @@ measurements_history = []                            # Store measurements at eac
 # Initialize particles
 #N_p = 10  # Number of particles
 N_p = 10
+#N_p = 3
 particles = []
 
 
@@ -134,8 +135,12 @@ for _ in range(N_p):
 
         'e_k': np.array([[1] if x_k_init[i][0] != 0 and x_k_init[i][1] != 0 else [0] for i in range(N_max)], dtype=int), # Existence flags of all targets
 
-        'x_k_prev': np.zeros((N_max, 4)),  # Previous state
-        'e_k_prev': np.zeros(N_max, dtype=int),  # Previous existence flags
+        #'x_k_prev': np.zeros((N_max, 4)),  # Previous state
+        'x_k_prev': x_k_init,  # define initial previous state as the initial state
+
+        #'e_k_prev': np.zeros(N_max, dtype=int),  # Previous existence flags
+        'e_k_prev': np.array([[1] if x_k_init[i][0] != 0 and x_k_init[i][1] != 0 else [0] for i in range(N_max)], dtype=int), # initialize e_k_prev to be equal to e_k
+
         'x_k_samples': [],  # List to store x_k samples during MCMC
         'e_k_samples': []  # List to store e_k samples during MCMC
     }
@@ -442,6 +447,11 @@ for k in tqdm(range(K), desc="Time Steps"):
     etape_numero = 1
     # MCMC Sampling for each particle with progress bar
     for particle in tqdm(particles, desc=f"Particles at Time Step {k+1}/{K}", leave=False):
+        
+        #print(f"print particle {particle}")
+        print(f" x_k_prev {particle['x_k_prev']}") # QUE DES 0 ICI car on initialise à 0 donc par recurrence ca donne que des 0
+        print(f" e_k_prev {particle['e_k_prev']}") # PAREIL, QUE DES 0 ICI car on initialise à 0 donc par recurrence ca donne que des 0
+
         xk_current = particle['x_k']
         ek_current = particle['e_k']
         xk_prev = particle['x_k_prev'].copy()
@@ -509,6 +519,7 @@ for k in tqdm(range(K), desc="Time Steps"):
         particle['x_k_prev'] = xk_current.copy()
         particle['e_k_prev'] = ek_current.copy()
     
+        #print(f"print particle {particle}")
     #BROUILLON MOI
     #for i in range(5):
         #print(f"print element de particles {[a for a in particles]}")  #vaut toujours 0
