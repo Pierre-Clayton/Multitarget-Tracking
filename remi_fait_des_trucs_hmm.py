@@ -48,6 +48,7 @@ L_y = 5000.0  # Height in meters
 
 # Time parameters
 T = 100.0               # Total simulation time in seconds
+
 delta_t = 1.0           # Time step in seconds
 K = int(T / delta_t)    # Total number of time steps
 time_vector = [k * delta_t for k in range(K)]
@@ -121,7 +122,7 @@ N_p = 10
 #N_p = 3
 particles = []
 
-
+# Important to note : "particles" is only used for estimations, it is not used to update the true states of the targets.
 # Modified implementation of the initialization of particles to ensure that existence flags e_k are consistent with state x_k.
 # Previously, existence flags were randomly initialized but that should not be the case because in our implementation, being dead is equivalent to have the first two coordinates of x_k to be 0.
 for _ in range(N_p):
@@ -147,12 +148,19 @@ for _ in range(N_p):
     particles.append(particle)
 #print(particles) #que des 0 ici si la proba de naissance est pas assez grande ou si on a pas assez de particules
 
+
+
+
+
+
+
 #### To see that the initialization is correct
 numero = 1
 for particle in particles:
     print(f"print initialization of particle[e_k] number {numero} {particle['e_k']}")
     print(f"print initilization of particle[x_k] number {numero} {particle['x_k']}")
     numero = numero + 1
+
 
 # Initialize lists to store estimates over time
 estimated_trajectories = [[] for _ in range(N_max)]
@@ -175,7 +183,7 @@ def initialize_target_state():
     return np.concatenate((position, velocity))
 
 # Function to update true targets
-def update_true_targets(k, target_states, existence_flags, target_schedule):
+def update_true_targets(k, target_states, existence_flags, target_schedule):  #this functions returns nothing, could be problematic
     for n in range(N_max):
         birth_time, death_time = target_schedule[n]
         if birth_time <= k < death_time:
@@ -243,7 +251,7 @@ def motion_model_sample(x_prev):
     return x_new
 
 # Joint proposal function
-def joint_proposal(xk_current, ek_current, xk_prev, ek_prev, particle):
+def joint_proposal(xk_current, ek_current, xk_prev, ek_prev, particle):   #We don't use the argument particle here ??
     xk_star = np.zeros_like(xk_current)
     ek_star = np.zeros_like(ek_current)
     xk_prev_star = xk_prev.copy()
@@ -269,7 +277,7 @@ def joint_proposal(xk_current, ek_current, xk_prev, ek_prev, particle):
     return xk_star, ek_star, xk_prev_star, ek_prev_star
 
 # Function to compute log target density
-def compute_log_target_density(xk, ek, xk_prev, ek_prev, measurements_k, particle):
+def compute_log_target_density(xk, ek, xk_prev, ek_prev, measurements_k, particle): #We don't use the argument particle here ??
     # Log likelihood of measurements
     log_likelihood = compute_log_likelihood(measurements_k, xk, ek)
     
@@ -427,30 +435,68 @@ start_time = time.time()
 # Main loop over time steps with progress bar
 print("Starting simulation...")
 for k in tqdm(range(K), desc="Time Steps"):
-    # Update true target states and existence flags
+    # Update true target states and true existence flags
+    print(k)
+
+    #print(f"print existence_flags before {existence_flags}")
+    #print(f"print target_states before {target_states}")
     update_true_targets(k, target_states, existence_flags, target_schedule)
-    
+    #print(f"print target_states after {target_states}")
+    #print(f"print existence_flags after {existence_flags}")
+
+
     # Store true target positions
     for n in range(N_max):
         if existence_flags[n]:
-            #print("Exist !")
+            #print(f"Exist ! existance_flags {existence_flags[n]}")
             #print(target_states[n][:2])
             target_trajectories[n].append(target_states[n][:2].copy())
+            #print(target_trajectories[n])
         else:
             target_trajectories[n].append(None)
-    
+            #print(f"n'existe pas ? existance_flags {existence_flags[n]}")
+    #print(f"target_trajectories {target_trajectories}")
+
     # Generate measurements
     measurements_k = generate_measurements(target_states, existence_flags)
     measurements_history.append(measurements_k)
-    
+    #print(f"print measurements_k {measurements_k}")
+
+
+    ####### REMI TEST OTHER INITIALIZATION #######
+    #instead of initializing particles with random values, we initialize them with the true values
+    if k==0: #only at the first time step
+        for _ in range(N_p):
+            #x_k_init = np.array([initialize_target_state() if np.random.rand() < P_B else x_death for _ in range(N_max)])
+            x_k_init = target_states.copy()
+            particle = {
+                'x_k': x_k_init,  # State of all targets
+
+                'e_k': np.array([[1] if x_k_init[i][0] != 0 and x_k_init[i][1] != 0 else [0] for i in range(N_max)], dtype=int), # Existence flags of all targets
+
+                'x_k_prev': x_k_init,  # define initial previous state as the initial state
+
+                'e_k_prev': np.array([[1] if x_k_init[i][0] != 0 and x_k_init[i][1] != 0 else [0] for i in range(N_max)], dtype=int), # initialize e_k_prev to be equal to e_k
+
+                'x_k_samples': [],  # List to store x_k samples during MCMC
+                'e_k_samples': []  # List to store e_k samples during MCMC
+            }
+            particles.append(particle)
+
+    ######### END REMI TEST OTHER INITIALIZATION #########
+
+
+
+
+
 
     etape_numero = 1
     # MCMC Sampling for each particle with progress bar
     for particle in tqdm(particles, desc=f"Particles at Time Step {k+1}/{K}", leave=False):
         
         #print(f"print particle {particle}")
-        print(f" x_k_prev {particle['x_k_prev']}") # QUE DES 0 ICI car on initialise à 0 donc par recurrence ca donne que des 0
-        print(f" e_k_prev {particle['e_k_prev']}") # PAREIL, QUE DES 0 ICI car on initialise à 0 donc par recurrence ca donne que des 0
+        #print(f" x_k_prev {particle['x_k_prev']}") # QUE DES 0 ICI car on initialise à 0 donc par recurrence ca donne que des 0
+        #print(f" e_k_prev {particle['e_k_prev']}") # PAREIL, QUE DES 0 ICI car on initialise à 0 donc par recurrence ca donne que des 0
 
         xk_current = particle['x_k']
         ek_current = particle['e_k']
@@ -508,7 +554,7 @@ for k in tqdm(range(K), desc="Time Steps"):
 
 
         # Update particle with new state
-        if particle['x_k_samples']:
+        if particle['x_k_samples']: #check if non empty
             # Use the last sample as the particle's state
             particle['x_k'] = particle['x_k_samples'][-1]
             particle['e_k'] = particle['e_k_samples'][-1]
@@ -596,6 +642,44 @@ def plot_true_and_estimated_trajectories():
 # Plot trajectories
 plot_true_and_estimated_trajectories()
 
+
+
+
+
+
+#### REMI PLOT ONLY FIRST "number_plot" time steps
+number_plot = 10
+def plot_true_and_estimated_trajectories():
+    plot_surveillance_area()
+    # Plot true trajectories
+    for n in range(N_max):
+        true_traj = [pos for pos in target_trajectories[n] if pos is not None]
+        true_traj = true_traj[:number_plot]  # Only plot first 20 time steps
+        print(f'True traj: {true_traj}')
+        if true_traj:
+            true_traj = np.array(true_traj)
+            plt.plot(true_traj[:, 0], true_traj[:, 1], label=f'True Target {n+1}')
+    # Plot estimated trajectories
+    for n in range(N_max):
+        est_traj = [pos for pos in estimated_trajectories[n] if pos is not None]
+        est_traj = est_traj[:number_plot]  # Only plot first 20 time steps
+        print(f'Estimated traj: {est_traj}')
+        if est_traj:
+            est_traj = np.array(est_traj)
+            plt.plot(est_traj[:, 0], est_traj[:, 1], '--', label=f'Estimated Target {n+1}')
+    plt.legend()
+    plt.title('True and Estimated Target Trajectories')
+    plt.show()
+
+# Plot trajectories
+plot_true_and_estimated_trajectories()
+##### END REMI PLOT ONLY FIRST "number_plot" time steps
+
+
+
+
+
+
 # Function to compute RMSE
 def compute_rmse():
     total_error = 0.0
@@ -633,6 +717,8 @@ def plot_cardinality_over_time():
     plt.title('Cardinality Estimation Over Time')
     plt.legend()
     plt.show()
+
+
 
 # Plot cardinality estimation
 plot_cardinality_over_time()
