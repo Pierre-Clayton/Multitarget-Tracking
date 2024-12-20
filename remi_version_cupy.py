@@ -1,13 +1,11 @@
 # Import necessary libraries
-import numpy as np
+import cupy as np
 from scipy.stats import multivariate_normal, poisson
 import matplotlib.pyplot as plt
 import time
 from tqdm import tqdm  # Library for progress bars
-
 # Set random seed for reproducibility (optional)
 np.random.seed(42)
-
 
 
 #### REMI QUI RAJOUTE DES TRUCS
@@ -48,6 +46,7 @@ L_y = 5000.0  # Height in meters
 
 # Time parameters
 T = 100.0               # Total simulation time in seconds
+T= 15.0
 
 delta_t = 1.0           # Time step in seconds
 K = int(T / delta_t)    # Total number of time steps
@@ -66,6 +65,20 @@ target_schedule = [
     (25, K),     # Target 5: born at time step 25
 ]
 
+
+target_schedule = [
+    (0, K),      # Target 1: born at time step 0, dies at time step K
+    (0, K),      # Target 2
+    (0, K),      # Target 3
+    (7, K),     # Target 4: born at time step 25
+    (7, K),     # Target 5: born at time step 25
+]
+
+
+
+
+
+
 # Motion model parameters
 sigma_process = 5.0  # Standard deviation of the process noise
 V_max = 10.0         # Maximum target velocity in m/s
@@ -81,7 +94,7 @@ Lambda_C = 20  # Average number of clutter measurements per time step
 # Transition probabilities for existence variables
 P_S = 0.99  # Probability that an active target survives
 P_B = 0.01  # Probability that a new target is born
-P_B = 0.4
+#P_B = 0.4
 
 # Initialize process noise covariance matrix Q
 def get_process_noise_covariance(delta_t, sigma_process):
@@ -119,7 +132,7 @@ measurements_history = []                            # Store measurements at eac
 # Initialize particles
 #N_p = 10  # Number of particles
 N_p = 10
-#N_p = 3
+N_p = 1000
 particles = []
 
 # Important to note : "particles" is only used for estimations, it is not used to update the true states of the targets.
@@ -183,6 +196,7 @@ def initialize_target_state():
     return np.concatenate((position, velocity))
 
 # Function to update true targets
+
 def update_true_targets(k, target_states, existence_flags, target_schedule):  #this functions returns nothing, could be problematic
     for n in range(N_max):
         birth_time, death_time = target_schedule[n]
@@ -203,8 +217,11 @@ def update_true_targets(k, target_states, existence_flags, target_schedule):  #t
             existence_flags[n] = 0
 
 # Function to generate clutter measurements
+
 def generate_clutter_measurements():
-    num_clutter = np.random.poisson(Lambda_C)
+    num_clutter = int(np.random.poisson(lam = Lambda_C))
+    print(type(num_clutter))
+    print(num_clutter)
     clutter_measurements = np.random.uniform(
         [0, 0],
         [L_x, L_y],
@@ -213,6 +230,7 @@ def generate_clutter_measurements():
     return clutter_measurements
 
 # Function to generate measurements
+
 def generate_measurements(target_states, existence_flags):
     measurements = []
     # Generate target-originated measurements
@@ -235,34 +253,37 @@ def generate_measurements(target_states, existence_flags):
     return np.array(measurements)
 
 # Function to propose existence variable
+
 def propose_existence(ekn_prev):
     if ekn_prev == 1:
         # Target may survive or die
-        ekn_star = np.random.choice([1, 0], p=[P_S, 1 - P_S])
+        ekn_star = np.random.choice([1, 0], p=[P_S, 1 - P_S], size=1)
     else:
         # Target may be born or remain absent
-        ekn_star = np.random.choice([1, 0], p=[P_B, 1 - P_B])
+        ekn_star = np.random.choice([1, 0], p=[P_B, 1 - P_B], size=1 )
     return ekn_star
 
 # Function to sample from motion model
+
 def motion_model_sample(x_prev):
     process_noise = np.random.multivariate_normal(mean=np.zeros(4), cov=Q)
     x_new = A @ x_prev + process_noise
     return x_new
 
 # Joint proposal function
+
 def joint_proposal(xk_current, ek_current, xk_prev, ek_prev, particle):   #We don't use the argument particle here ??
     xk_star = np.zeros_like(xk_current)
     ek_star = np.zeros_like(ek_current)
     xk_prev_star = xk_prev.copy()
     ek_prev_star = ek_prev.copy()
-    
+
     for n in range(N_max):
         # Propose new existence variable
         ekn_prev = ek_prev[n]
         ekn_star = propose_existence(ekn_prev)
         ek_star[n] = ekn_star
-        
+
         # Propose new state
         if ekn_star == 1:
             if ekn_prev == 1:
@@ -277,10 +298,11 @@ def joint_proposal(xk_current, ek_current, xk_prev, ek_prev, particle):   #We do
     return xk_star, ek_star, xk_prev_star, ek_prev_star
 
 # Function to compute log target density
+
 def compute_log_target_density(xk, ek, xk_prev, ek_prev, measurements_k, particle): #We don't use the argument particle here ??
     # Log likelihood of measurements
     log_likelihood = compute_log_likelihood(measurements_k, xk, ek)
-    
+
     # Log prior
     log_prior = 0.0
     for n in range(N_max):
@@ -317,8 +339,9 @@ def compute_log_likelihood(measurements_k, xk, ek):
     num_targets = np.sum(ek)
     mu_k = Lambda_C + num_targets * P_D
     M_k = len(measurements_k)
-    log_poisson = poisson.logpmf(M_k, mu_k)
-    
+    log_poisson = np.array(poisson.logpmf(M_k, mu_k))
+
+
     log_intensity = 0.0
     for z in measurements_k:
         # Clutter intensity
@@ -350,13 +373,14 @@ def compute_acceptance_probability(
     return log_alpha
 
 # Refinement steps function
+
 def refinement_steps(xk_current, ek_current, xk_prev, ek_prev, measurements_k):
     for n in range(N_max):
         # Propose new existence variable
         ekn_prev = ek_prev[n]
         ekn_current = ek_current[n]
         ekn_star = propose_existence(ekn_prev)
-        
+
         # Propose new state
         if ekn_star == 1:
             if ekn_prev == 1:
@@ -365,7 +389,7 @@ def refinement_steps(xk_current, ek_current, xk_prev, ek_prev, measurements_k):
                 xkn_star = initialize_target_state()
         else:
             xkn_star = x_death
-        
+
         # Compute acceptance probability for target n
         log_p_star = compute_log_target_density_single(
             xkn_star, ekn_star, xk_current, ek_current, xk_prev, ek_prev, measurements_k, n
@@ -374,7 +398,7 @@ def refinement_steps(xk_current, ek_current, xk_prev, ek_prev, measurements_k):
             xk_current[n], ekn_current, xk_current, ek_current, xk_prev, ek_prev, measurements_k, n
         )
         log_alpha = log_p_star - log_p_current
-        
+
         # Accept or reject
         if np.log(np.random.rand()) < log_alpha:
             # Accept proposal
@@ -391,10 +415,10 @@ def compute_log_target_density_single(
     ek[n] = ekn
     xk = xk_current.copy()
     xk[n] = xkn
-    
+
     # Compute log likelihood
     log_likelihood = compute_log_likelihood(measurements_k, xk, ek)
-    
+
     # Compute log prior for target n
     ekn_prev = ek_prev[n]
     if ekn_prev == 1:
@@ -493,7 +517,7 @@ for k in tqdm(range(K), desc="Time Steps"):
     etape_numero = 1
     # MCMC Sampling for each particle with progress bar
     for particle in tqdm(particles, desc=f"Particles at Time Step {k+1}/{K}", leave=False):
-        
+
         #print(f"print particle {particle}")
         #print(f" x_k_prev {particle['x_k_prev']}") # QUE DES 0 ICI car on initialise à 0 donc par recurrence ca donne que des 0
         #print(f" e_k_prev {particle['e_k_prev']}") # PAREIL, QUE DES 0 ICI car on initialise à 0 donc par recurrence ca donne que des 0
@@ -502,7 +526,7 @@ for k in tqdm(range(K), desc="Time Steps"):
         ek_current = particle['e_k']
         xk_prev = particle['x_k_prev'].copy()
         ek_prev = particle['e_k_prev'].copy()
-        
+
         #print(f"print particles avec s {particles}")
         #print(etape_numero)
         #print(f"xk_current: {xk_current}")
@@ -511,7 +535,7 @@ for k in tqdm(range(K), desc="Time Steps"):
         #print(f"ek_prev: {ek_prev}")
         #etape_numero += 1
         # Initialize sample lists for this time step
-        
+
 
 
         particle['x_k_samples'] = []  #ok create new column
@@ -564,7 +588,7 @@ for k in tqdm(range(K), desc="Time Steps"):
             particle['e_k'] = ek_current
         particle['x_k_prev'] = xk_current.copy()
         particle['e_k_prev'] = ek_current.copy()
-    
+
         #print(f"print particle {particle}")
     #BROUILLON MOI
     #for i in range(5):
@@ -575,7 +599,7 @@ for k in tqdm(range(K), desc="Time Steps"):
 
 
     # Estimation at time step k
-    estimated_states = [] 
+    estimated_states = []
     existence_probabilities = []
     for n in range(N_max):
         active_particles = [p['x_k'][n] for p in particles if p['e_k'][n] == 1]
