@@ -501,9 +501,9 @@ def mcmcm_step(particle):
 
 # Parameters for MCMC
 N_MCMC = 50       # Number of MCMC iterations per particle per time step
-N_MCMC = 250
+N_MCMC = 100
 N_burn = 10       # Burn-in period
-N_burn = 100
+N_burn = 30
 N_thin = 2        # Thinning interval
 
 # Start timer
@@ -648,21 +648,22 @@ plot_true_and_estimated_trajectories()
 
 
 #### REMI PLOT ONLY FIRST "number_plot" time steps
-number_plot = 10
-def plot_true_and_estimated_trajectories():
+def partial_plot_true_and_estimated_trajectories(number_plot = 10):
     plot_surveillance_area()
     # Plot true trajectories
     for n in range(N_max):
-        true_traj = [pos for pos in target_trajectories[n] if pos is not None]
-        true_traj = true_traj[:number_plot]  # Only plot first 20 time steps
+        true_traj = [pos for pos in target_trajectories[n]]
+        true_traj = true_traj[:number_plot]  # Only plot first 10 time steps
+        true_traj = [pos for pos in true_traj if pos is not None]
         print(f'True traj: {true_traj}')
         if true_traj:
             true_traj = np.array(true_traj)
             plt.plot(true_traj[:, 0], true_traj[:, 1], label=f'True Target {n+1}')
     # Plot estimated trajectories
     for n in range(N_max):
-        est_traj = [pos for pos in estimated_trajectories[n] if pos is not None]
+        est_traj = [pos for pos in estimated_trajectories[n]]
         est_traj = est_traj[:number_plot]  # Only plot first 20 time steps
+        est_traj = [pos for pos in est_traj if pos is not None]
         print(f'Estimated traj: {est_traj}')
         if est_traj:
             est_traj = np.array(est_traj)
@@ -672,7 +673,7 @@ def plot_true_and_estimated_trajectories():
     plt.show()
 
 # Plot trajectories
-plot_true_and_estimated_trajectories()
+partial_plot_true_and_estimated_trajectories(10)
 ##### END REMI PLOT ONLY FIRST "number_plot" time steps
 
 

@@ -81,7 +81,8 @@ Lambda_C = 20  # Average number of clutter measurements per time step
 # Transition probabilities for existence variables
 P_S = 0.99  # Probability that an active target survives
 P_B = 0.01  # Probability that a new target is born
-P_B = 0.4
+#P_B = 0.4
+
 
 # Initialize process noise covariance matrix Q
 def get_process_noise_covariance(delta_t, sigma_process):
@@ -256,13 +257,13 @@ def joint_proposal(xk_current, ek_current, xk_prev, ek_prev, particle):   #We do
     ek_star = np.zeros_like(ek_current)
     xk_prev_star = xk_prev.copy()
     ek_prev_star = ek_prev.copy()
-    
+
     for n in range(N_max):
         # Propose new existence variable
         ekn_prev = ek_prev[n]
         ekn_star = propose_existence(ekn_prev)
         ek_star[n] = ekn_star
-        
+
         # Propose new state
         if ekn_star == 1:
             if ekn_prev == 1:
@@ -280,7 +281,7 @@ def joint_proposal(xk_current, ek_current, xk_prev, ek_prev, particle):   #We do
 def compute_log_target_density(xk, ek, xk_prev, ek_prev, measurements_k, particle): #We don't use the argument particle here ??
     # Log likelihood of measurements
     log_likelihood = compute_log_likelihood(measurements_k, xk, ek)
-    
+
     # Log prior
     log_prior = 0.0
     for n in range(N_max):
@@ -318,7 +319,7 @@ def compute_log_likelihood(measurements_k, xk, ek):
     mu_k = Lambda_C + num_targets * P_D
     M_k = len(measurements_k)
     log_poisson = poisson.logpmf(M_k, mu_k)
-    
+
     log_intensity = 0.0
     for z in measurements_k:
         # Clutter intensity
@@ -356,7 +357,7 @@ def refinement_steps(xk_current, ek_current, xk_prev, ek_prev, measurements_k):
         ekn_prev = ek_prev[n]
         ekn_current = ek_current[n]
         ekn_star = propose_existence(ekn_prev)
-        
+
         # Propose new state
         if ekn_star == 1:
             if ekn_prev == 1:
@@ -365,7 +366,7 @@ def refinement_steps(xk_current, ek_current, xk_prev, ek_prev, measurements_k):
                 xkn_star = initialize_target_state()
         else:
             xkn_star = x_death
-        
+
         # Compute acceptance probability for target n
         log_p_star = compute_log_target_density_single(
             xkn_star, ekn_star, xk_current, ek_current, xk_prev, ek_prev, measurements_k, n
@@ -374,7 +375,7 @@ def refinement_steps(xk_current, ek_current, xk_prev, ek_prev, measurements_k):
             xk_current[n], ekn_current, xk_current, ek_current, xk_prev, ek_prev, measurements_k, n
         )
         log_alpha = log_p_star - log_p_current
-        
+
         # Accept or reject
         if np.log(np.random.rand()) < log_alpha:
             # Accept proposal
@@ -391,10 +392,10 @@ def compute_log_target_density_single(
     ek[n] = ekn
     xk = xk_current.copy()
     xk[n] = xkn
-    
+
     # Compute log likelihood
     log_likelihood = compute_log_likelihood(measurements_k, xk, ek)
-    
+
     # Compute log prior for target n
     ekn_prev = ek_prev[n]
     if ekn_prev == 1:
@@ -421,7 +422,7 @@ def compute_log_target_density_single(
     return log_likelihood + log_prior
 
 def mcmcm_step(particle):
-        
+
     #print(f"print particle {particle}")
     #print(f" x_k_prev {particle['x_k_prev']}") # QUE DES 0 ICI car on initialise à 0 donc par recurrence ca donne que des 0
     #print(f" e_k_prev {particle['e_k_prev']}") # PAREIL, QUE DES 0 ICI car on initialise à 0 donc par recurrence ca donne que des 0
@@ -430,7 +431,7 @@ def mcmcm_step(particle):
     ek_current = particle['e_k']
     xk_prev = particle['x_k_prev'].copy()
     ek_prev = particle['e_k_prev'].copy()
-    
+
     #print(f"print particles avec s {particles}")
     #print(etape_numero)
     #print(f"xk_current: {xk_current}")
@@ -439,7 +440,7 @@ def mcmcm_step(particle):
     #print(f"ek_prev: {ek_prev}")
     #etape_numero += 1
     # Initialize sample lists for this time step
-    
+
 
 
     particle['x_k_samples'] = []  #ok create new column
@@ -566,12 +567,12 @@ for k in tqdm(range(K), desc="Time Steps"):
     etape_numero = 1
     # MCMC Sampling for each particle with progress bar
     # for particle in tqdm(particles, desc=f"Particles at Time Step {k+1}/{K}", leave=False):
-        
-    particles = Parallel(n_jobs=-1)(delayed(mcmcm_step)(particle) for particle in particles)        
+
+    particles = Parallel(n_jobs=-1)(delayed(mcmcm_step)(particle) for particle in particles)
 
 
     # Estimation at time step k
-    estimated_states = [] 
+    estimated_states = []
     existence_probabilities = []
     for n in range(N_max):
         active_particles = [p['x_k'][n] for p in particles if p['e_k'][n] == 1]
@@ -642,23 +643,23 @@ plot_true_and_estimated_trajectories()
 
 
 
-
 #### REMI PLOT ONLY FIRST "number_plot" time steps
-number_plot = 10
-def plot_true_and_estimated_trajectories():
+def partial_plot_true_and_estimated_trajectories(number_plot = 10):
     plot_surveillance_area()
     # Plot true trajectories
     for n in range(N_max):
-        true_traj = [pos for pos in target_trajectories[n] if pos is not None]
-        true_traj = true_traj[:number_plot]  # Only plot first 20 time steps
+        true_traj = [pos for pos in target_trajectories[n]]
+        true_traj = true_traj[:number_plot]  # Only plot first 10 time steps
+        true_traj = [pos for pos in true_traj if pos is not None]
         print(f'True traj: {true_traj}')
         if true_traj:
             true_traj = np.array(true_traj)
             plt.plot(true_traj[:, 0], true_traj[:, 1], label=f'True Target {n+1}')
     # Plot estimated trajectories
     for n in range(N_max):
-        est_traj = [pos for pos in estimated_trajectories[n] if pos is not None]
+        est_traj = [pos for pos in estimated_trajectories[n]]
         est_traj = est_traj[:number_plot]  # Only plot first 20 time steps
+        est_traj = [pos for pos in est_traj if pos is not None]
         print(f'Estimated traj: {est_traj}')
         if est_traj:
             est_traj = np.array(est_traj)
@@ -668,7 +669,7 @@ def plot_true_and_estimated_trajectories():
     plt.show()
 
 # Plot trajectories
-plot_true_and_estimated_trajectories()
+partial_plot_true_and_estimated_trajectories(10)
 ##### END REMI PLOT ONLY FIRST "number_plot" time steps
 
 
@@ -777,4 +778,4 @@ def plot_measurements_and_estimates(k):
     plt.show()
 
 # Plot measurements and estimates at time step 50
-plot_measurements_and_estimates(50)
+plot_measurements_and_estimates(49)
