@@ -1,6 +1,7 @@
 # Import necessary libraries
 import numpy as np
 from scipy.stats import multivariate_normal, poisson
+import math
 import matplotlib.pyplot as plt
 import time
 from tqdm import tqdm  # Library for progress bars
@@ -317,31 +318,37 @@ def compute_log_target_density(xk, ek, xk_prev, ek_prev, measurements_k, particl
         log_prior += log_p_e + log_p_x
     return log_likelihood + log_prior
 
-# Function to compute log likelihood
+
+
+
+
 def compute_log_likelihood(measurements_k, xk, ek):
     num_targets = np.sum(ek)
-    mu_k = Lambda_C + num_targets * P_D
+    mu_k = Lambda_C + num_targets * Lambda_n
     M_k = len(measurements_k)
-    log_poisson = poisson.logpmf(M_k, mu_k)
 
-    log_intensity = 0.0
+    #sum of intensity
+    sum_log_intensity = 0.0
+
     for z in measurements_k:
-        # Clutter intensity
-        clutter_intensity = Lambda_C / (L_x * L_y)
-        # Target intensity
-        target_intensity = 0.0
+        #clutter contribution to intensity
+        clutter_contrib = Lambda_C / (L_x * L_y)
+
+        #target contribution to intensity
+        target_contrib = 0.0
+
         for n in range(N_max):
             if ek[n] == 1:
-                # Detection likelihood
-                likelihood = P_D * multivariate_normal.pdf(
-                    z, mean=xk[n][:2], cov=R
-                )
-                target_intensity += likelihood
-        # Total intensity
-        lambda_z = clutter_intensity + target_intensity
-        log_intensity += np.log(lambda_z)
-    log_likelihood = log_poisson + log_intensity - mu_k
-    return log_likelihood
+                target_contrib += Lambda_n * multivariate_normal.pdf(z, mean=xk[n][:2], cov=R)
+
+        #intensity
+        intensity = clutter_contrib + target_contrib
+        sum_log_intensity += np.log(intensity)
+
+    log_likelyhood = -mu_k - np.log(float(math.factorial(M_k))) + sum_log_intensity
+    return log_likelyhood
+
+
 
 # Function to compute acceptance probability
 def compute_acceptance_probability(
