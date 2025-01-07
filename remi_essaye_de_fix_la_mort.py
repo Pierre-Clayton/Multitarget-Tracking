@@ -637,14 +637,14 @@ def plot_true_and_estimated_trajectories():
         print(f'True traj: {true_traj}')
         if true_traj:
             true_traj = np.array(true_traj)
-            plt.plot(true_traj[:, 0], true_traj[:, 1], label=f'True Target {n+1}')
+            plt.plot(true_traj[:, 0], true_traj[:, 1], label=f'True Target {n+1}', c=plt.cm.tab10(n/N_max))
     # Plot estimated trajectories
     for n in range(N_max):
         est_traj = [pos for pos in estimated_trajectories[n] if pos is not None]
         print(f'Estimated traj: {est_traj}')
         if est_traj:
             est_traj = np.array(est_traj)
-            plt.plot(est_traj[:, 0], est_traj[:, 1], '--', label=f'Estimated Target {n+1}')
+            plt.plot(est_traj[:, 0], est_traj[:, 1], '--', label=f'Estimated Target {n+1}', c=plt.cm.tab10(n/N_max))
     plt.legend()
     plt.title('True and Estimated Target Trajectories')
     plt.show()
@@ -667,7 +667,7 @@ def partial_plot_true_and_estimated_trajectories(number_plot = 10):
         print(f'True traj: {true_traj}')
         if true_traj:
             true_traj = np.array(true_traj)
-            plt.plot(true_traj[:, 0], true_traj[:, 1], label=f'True Target {n+1}')
+            plt.plot(true_traj[:, 0], true_traj[:, 1], label=f'True Target {n+1}', c=plt.cm.tab10(n/N_max))
     # Plot estimated trajectories
     for n in range(N_max):
         est_traj = [pos for pos in estimated_trajectories[n]]
@@ -676,7 +676,7 @@ def partial_plot_true_and_estimated_trajectories(number_plot = 10):
         print(f'Estimated traj: {est_traj}')
         if est_traj:
             est_traj = np.array(est_traj)
-            plt.plot(est_traj[:, 0], est_traj[:, 1], '--', label=f'Estimated Target {n+1}')
+            plt.plot(est_traj[:, 0], est_traj[:, 1], '--', label=f'Estimated Target {n+1}', c=plt.cm.tab10(n/N_max))
     plt.legend()
     plt.title('True and Estimated Target Trajectories')
     plt.show()
