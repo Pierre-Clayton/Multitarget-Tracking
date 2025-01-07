@@ -75,7 +75,8 @@ V_max = 10.0         # Maximum target velocity in m/s
 # Sensor model parameters
 sigma_measurement = 10.0  # Standard deviation of measurement noise
 R = sigma_measurement ** 2 * np.eye(2)  # Measurement noise covariance matrix
-P_D = 0.9  # Detection probability
+
+Lambda_n = 1  # Average number of measurement received per time step for a target that is alive #ON PEUT SUREMENT LE METTRE EGAL A TAU
 
 # Clutter model parameters
 Lambda_C = 20  # Average number of clutter measurements per time step
@@ -206,7 +207,7 @@ def update_true_targets(k, target_states, existence_flags, target_schedule):  #t
             existence_flags[n] = 0
 
 # Function to generate clutter measurements
-def generate_clutter_measurements():
+def generate_clutter_measurements(): #ok pour cette fonction
     num_clutter = np.random.poisson(Lambda_C)
     clutter_measurements = np.random.uniform(
         [0, 0],
@@ -222,15 +223,16 @@ def generate_measurements(target_states, existence_flags):
     for n in range(N_max):
         if existence_flags[n]:
             # Target is active
-            if np.random.rand() <= P_D:
-                # Target is detected
-                position = target_states[n][:2]
+            position = target_states[n][:2]
+            num_measurements_alive = np.random.poisson(Lambda_n) #number of measurements of a target that is alive
+            for _ in range(num_measurements_alive): #create num_measurements_alive measurements
                 measurement_noise = np.random.multivariate_normal(
                     mean=[0, 0],
                     cov=R
                 )
                 measurement = position + measurement_noise
                 measurements.append(measurement)
+
     # Generate clutter measurements
     clutter_measurements = generate_clutter_measurements()
     if clutter_measurements.size > 0:
